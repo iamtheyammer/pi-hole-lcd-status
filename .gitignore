@@ -121,3 +121,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+.idea/
+
+docker_env.txt
+
+.DS_Store
