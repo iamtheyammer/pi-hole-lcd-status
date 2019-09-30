@@ -5,11 +5,23 @@ import signal
 import sys
 import os
 
+lcd = CharLCD("PCF8574", 0x27)
+lcd.clear()
+
 hostname = os.environ.get("PIHOLEMON_HOSTNAME")
 debug = os.environ.get("PIHOLEMON_DEBUG")
 
+
+def error_handler(code):
+    lcd.cursor_pos = (0, 0)
+    lcd.write_string("Error " + str(code))
+    lcd.cursor_pos = (1, 0)
+    lcd.write_string("See git.io/JenJh")
+
+
 if hostname is None:
     print("PIHOLEMON_HOSTNAME is not defined. It should be like http://1.1.1.1 where 1.1.1.1 is the IP of your Pi-hole.")
+    error_handler(1)
     sys.exit(1)
 
 if debug is None:
@@ -28,7 +40,8 @@ current_data = {
     "totalblockedqueriestoday": "0",
     "percentblocked": "0",
     "domainsonblocklist": "0",
-    "fetchedat": 0
+    "fetchedat": 0,
+    "error": False
 }
 
 # will allow us to selectively update the display
@@ -38,9 +51,6 @@ prev_data = {
     "percentblocked": "0",
     "domainsonblocklist": "0",
 }
-
-lcd = CharLCD("PCF8574", 0x27)
-lcd.clear()
 
 
 def exit_handler(sig, frame):
@@ -81,6 +91,7 @@ def update_current_data():
         current_data["percentblocked"] = r["ads_percentage_today"]
         current_data["domainsonblocklist"] = r["domains_being_blocked"]
         current_data["fetchedat"] = int(time.time())
+        current_data["error"] = False
 
         debug_log("Got new data")
         debug_log(current_data)
@@ -89,10 +100,15 @@ def update_current_data():
     except Exception as e:
         debug_log("There was an error getting current data:")
         debug_log(e)
+        error_handler(2)
+        current_data["error"] = True
     return
 
 
 def update_display():
+    if current_data["error"] is True:
+        lcd.clear()
+
     if current_data["totalqueriestoday"] != prev_data["totalqueriestoday"]:
         write_total_queries_today(current_data["totalqueriestoday"])
         prev_data["totalqueriestoday"] = current_data["totalqueriestoday"]
